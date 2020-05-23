@@ -13,7 +13,7 @@
 # import numpy as np
 # import seaborn as sns
 
-# In[119]:
+# In[291]:
 
 
 # Taking all imports for processing
@@ -36,6 +36,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.utils import resample
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import ClusterCentroids
+from imblearn.under_sampling import RandomUnderSampler
 
 
 # ### Loading train-data in dataframes
@@ -150,7 +151,7 @@ plt.tight_layout()
 combined_card_issuer_freq
 
 
-# ### [Part 1] Exploring card-type values (card6 field) between fraudulent vs non-fraudulent transactions ###
+# ### [Part 1] Exploring card-type (card6 field) between fraudulent vs non-fraudulent transactions ###
 
 # In[10]:
 
@@ -176,14 +177,14 @@ combined_card_freq['percent_exp_non_fraud'] = np.cbrt(combined_card_freq['percen
 combined_card_freq
 
 
-# In[11]:
+# In[149]:
 
 
 figures, axes = plt.subplots(1,2)
 combined_card_freq.plot.bar(x='card6', ax=axes[0], y=['percent_in_fraud', 'percent_in_non_fraud'])
 combined_card_freq.plot.bar(x='card6', ax=axes[1], y=['percent_exp_fraud', 'percent_exp_non_fraud'])
 axes[0].set_title("normal scale")
-axes[1].set_title("exponential scale")
+axes[1].set_title("exponential scale (cube-root)")
 plt.tight_layout()
 
 
@@ -193,7 +194,7 @@ plt.tight_layout()
 
 # ### [Part 1] Exploring DeviceInfo between fraudulent and non-fraudulent transactins ###
 
-# In[12]:
+# In[150]:
 
 
 non_null_device_info_count_fraud = fraudulent_df.DeviceInfo.count()
@@ -221,34 +222,7 @@ axes[1].set_title("Non Fraud device-infos")
 plt.tight_layout()
 
 
-# ### [Part 1] Exploring DeviceType field between fraudulent vs non-fraudulent transactions ###
-
-# In[13]:
-
-
-fraud_device_type_freq = fraudulent_df.DeviceType.value_counts().sort_values(ascending=True)
-fraud_device_type_freq = fraud_device_type_freq.rename_axis('device_type').reset_index(name='freq')
-
-non_fraud_device_type_freq = non_fraudulent_df.DeviceType.value_counts().sort_values(ascending=True)
-non_fraud_device_type_freq = non_fraud_device_type_freq.rename_axis('device_type').reset_index(name='freq')
-
-total_fraud_device_type = fraud_device_type_freq.freq.sum()
-total_non_fraud_device_type = non_fraud_device_type_freq.freq.sum()
-
-fraud_device_type_freq['percent'] = fraud_device_type_freq['freq'] * 100.0 / total_fraud_device_type
-non_fraud_device_type_freq['percent'] = non_fraud_device_type_freq['freq'] * 100.0 / total_non_fraud_device_type
-
-combined_device_type = pd.merge(fraud_device_type_freq, non_fraud_device_type_freq, on='device_type', how='outer', suffixes=['_in_fraud', '_in_non_fraud'])
-
-combined_device_type[['device_type', 'percent_in_fraud', 'percent_in_non_fraud']].plot.bar(x='device_type')
-plt.tight_layout()
-
-
-# ### Conclusion (DeviceType): ###
-# 1. Desktop devices are used less in fraudulent transactions, while mobile devices are used heavily for fraudulent transactions
-# 
-
-# ### [Part 1] Exploring DeviceInfo field between fraudulent vs non-fraudulent transacstions ###
+# ### Analysing suspicious device infos ###
 
 # In[14]:
 
@@ -284,6 +258,43 @@ suspicious_device_infos.plot.bar(x='transaction_type')
 # 2.  But, for some special devices ('hi6210sft Build/MRA58K', 'SM-A300H Build/LRX22G', 'LG-D320 Build/KOT49I.V10a') have frequency in the range of [0.7, 2] % which may not seem significant at first glance. But it is at least 70~ times more frequent than their non fraudulent counterparts [0.009, 0.031] %
 # 3.  A quick search on this agents reveals that these are agents of mobile devices.
 # 4.  In summary, it seems that fraudulent transactions are done more on mobile devices
+
+# ### [Part 1] Exploring DeviceType field between fraudulent vs non-fraudulent transactions ###
+
+# In[177]:
+
+
+fraud_device_type_freq = fraudulent_df.DeviceType.value_counts().sort_values(ascending=True)
+fraud_device_type_freq = fraud_device_type_freq.rename_axis('device_type').reset_index(name='freq')
+
+non_fraud_device_type_freq = non_fraudulent_df.DeviceType.value_counts().sort_values(ascending=True)
+non_fraud_device_type_freq = non_fraud_device_type_freq.rename_axis('device_type').reset_index(name='freq')
+
+total_fraud_device_type = fraud_device_type_freq.freq.sum()
+total_non_fraud_device_type = non_fraud_device_type_freq.freq.sum()
+
+fraud_device_type_freq['percent'] = fraud_device_type_freq['freq'] * 100.0 / total_fraud_device_type
+non_fraud_device_type_freq['percent'] = non_fraud_device_type_freq['freq'] * 100.0 / total_non_fraud_device_type
+
+combined_device_type = pd.merge(fraud_device_type_freq, non_fraud_device_type_freq, on='device_type', how='outer', suffixes=['_in_fraud', '_in_non_fraud'])
+
+# combined_device_type[['device_type', 'percent_in_fraud', 'percent_in_non_fraud']].plot.bar(x='device_type')
+
+figures, axes = plt.subplots(1, 2)
+axes[0].pie(combined_device_type['percent_in_fraud'], explode=(0.1, 0.0), labels=combined_device_type["device_type"], autopct='%1.1f%%', shadow=True, startangle=90)
+axes[0].axis('equal')  
+axes[0].set_title("fraud")
+
+axes[1].pie(combined_device_type['percent_in_non_fraud'], explode=(0.0, 0.1), labels=combined_device_type["device_type"], autopct='%1.1f%%', shadow=True, startangle=60)
+axes[1].axis('equal')  
+axes[1].set_title("non_fraud")
+
+plt.tight_layout()
+
+
+# ### Conclusion (DeviceType): ###
+# 1. Desktop devices are used less in fraudulent transactions, while mobile devices are used heavily for fraudulent transactions
+# 
 
 # ### [Part 1] Exploring values of addr1 (field) for fraud vs non-fraud transactions ###
 
@@ -413,16 +424,56 @@ plt.tight_layout()
 # 1.  gmail.com is proportionally more frequent in fraud transactions than non-fraud transactions
 # 2.  outlook.es, mail.com, live.com.mx are explicitly used in fraud transactions
 
+# ### [Part-1] Exploring dist1 and dist2 distributions between fraud and non-fraud transactions
+
+# In[202]:
+
+
+figures, axes = plt.subplots(2,2)
+sns.violinplot(x=fraudulent_df["dist1"], ax=axes[0,0])
+sns.violinplot(x=fraudulent_df["dist2"], ax=axes[0,1])
+sns.violinplot(x=non_fraudulent_df["dist1"], ax=axes[1,0])
+sns.violinplot(x=non_fraudulent_df["dist2"], ax=axes[1,1])
+axes[0,0].set_title("fraud-dist1")
+axes[0,1].set_title("fraud-dist2")
+axes[1,0].set_title("non_fraud-dist1")
+axes[1,1].set_title("non_fraud-dist2")
+
+plt.tight_layout()
+
+
+# ### Conclusion (dist1/dist2):
+# 1. Dist1 and Dist2 is centered around median more in fraudulent transaction than non-fraudulent transaction
+# 2. There is high variance for distances in non-fraudulent transaction
+
+# ### [Part-1] Exploring Transaction amount between fraud and non-fraud transactions
+
+# In[209]:
+
+
+figures, axes = plt.subplots(1,2)
+sns.violinplot(x=fraudulent_df["TransactionAmt"], ax=axes[0])
+sns.violinplot(x=non_fraudulent_df["TransactionAmt"], ax=axes[1])
+axes[0].set_title("fraud")
+axes[1].set_title("non fraud")
+
+plt.tight_layout()
+
+
+# ### Conclusion:
+# 1. A high variance of transaction amount is observed in fraud transactions than non-fraud transactions
+# 2. The transaction amount are scaled to lower range of amount for fraud than non fraud transactions
+
 # ### [Part 1] Observing distributions of fields among fraudulent and non-fraudulent transactions ###
 
-# In[24]:
+# In[210]:
 
 
 fraud_hists = fraudulent_df.hist()
 plt.tight_layout()
 
 
-# In[25]:
+# In[211]:
 
 
 non_fraud_hists = non_fraudulent_df.hist()
@@ -434,13 +485,13 @@ plt.tight_layout()
 
 # ## Observing max-min-std of the fields among fraud vs non-fraud transactions ##
 
-# In[32]:
+# In[212]:
 
 
 fraudulent_df.describe()
 
 
-# In[33]:
+# In[213]:
 
 
 non_fraudulent_df.describe()
@@ -461,7 +512,7 @@ non_fraudulent_df.describe()
 # 1. https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.cut.html
 # 2. https://stackoverflow.com/questions/21441259/pandas-groupby-range-of-values
 
-# In[34]:
+# In[214]:
 
 
 country_code_freq = basic_fields_df['addr2'].value_counts()
@@ -472,12 +523,14 @@ country_code_freq.head()
 # ### [Part-2] Maximum transaction country ###
 # We can see in the above step that the country with maximum transactions is the country having country-code, 87 (~ 88% of transactions).
 # So in the next step we observe the values of country with code 87. 
+
+# ### [Part-2] We will calculate different time-level tags based on different time widths (86400, 3600, 60) and modulo operator
 # 1. First we will calculate day-level-tags (ith day in the time frame of whole data-set)
 # 2. Then we will calculate hour-level-tags (ith hour in the time frame of whole data-set)
 # 3. Then we will calculate minute-level-tags(ith minute in the time frame of whole day)
 # 4. In the end we will analyse time tag wise distribution for countries with code 87
 
-# In[35]:
+# In[215]:
 
 
 max_transaction_dt = 16000000 # max value in data-set
@@ -508,13 +561,13 @@ basic_fields_df['hour_of_day'] = basic_fields_df['hour_tags'] % 24
 basic_fields_df['minute_of_day'] = basic_fields_df['minute_tags'] % 1440
 
 
-# In[36]:
+# In[216]:
 
 
 most_frequent_country = basic_fields_df[basic_fields_df.addr2 == 87]
 
 
-# In[37]:
+# In[217]:
 
 
 dayWiseTransactionCount = most_frequent_country.groupby("day_tags")["TransactionID"].agg(['count'])
@@ -523,7 +576,9 @@ plt.tight_layout()
 
 
 # ## Conclusion ##
-# As you can see, majority of the transactions were done in the earlier days in the time frame. There are only few outliers (a day or two) in the six month time frame
+# Majority of the transactions were done in the earlier days in the time frame.
+# 
+# There are only few outliers (2-3 days) in the six month time frame, this may suggest that during the initial time-frame of days there was some sale or other external factor influencing large number of transactions
 
 # In[38]:
 
@@ -535,11 +590,12 @@ plt.tight_layout()
 
 # ## Conclusion ##
 # 1. As we can see in the above plot, that a majority of transactions are calculated in hours (hour 0 to hour 2) and in late hours (hour 15 to hour 23).
-# 2. This indicates majority of the people who reside in country with code 87, have their waking hours as per base reference, from hour 0 to hour 4 and hour 13 to hour 23. So waking hours of people in country code 87, lies in ranges [13, 23], [0, 4]
+# 2. This indicates majority of the people who reside in country with code 87, have their waking hours as per base reference, from hour 0 to hour 4 and hour 13 to hour 23. 
+# 3. So waking hours of people in country code 87, lies in ranges [13, 23], [0, 4]
 
 # ## Part 3 - Product Code
 
-# In[48]:
+# In[238]:
 
 
 # TODO: code to analyze prices for different product codes
@@ -548,13 +604,24 @@ values = values.rename_axis('product').reset_index(name='freq')
 values.head()
 
 
-# In[49]:
+# In[239]:
+
+
+figures, axes = plt.subplots()
+axes.pie(values["freq"], explode=(0, 0.1, 0.1, 0.1, 0.1), labels=values["product"], autopct='%1.1f%%', shadow=True, startangle=90)
+axes.axis('equal')  
+axes.set_title("Product Distribution")
+
+plt.tight_layout()
+
+
+# In[240]:
 
 
 sns.countplot(x='ProductCD', data=basic_fields_df)
 
 
-# In[50]:
+# In[241]:
 
 
 product_agg_df = basic_fields_df.groupby(["ProductCD"])["TransactionID", "TransactionAmt"].agg(["min", "max", "count"])
@@ -562,7 +629,7 @@ product_agg_df.columns = ["_".join(x) for x in product_agg_df.columns.ravel()] #
 product_agg_df
 
 
-# In[51]:
+# In[242]:
 
 
 figure, axes = plt.subplots(1,3)
@@ -586,7 +653,6 @@ plt.tight_layout()
 
 # ## Conclusion ##
 # 
-# 
 # 1.   Product R is the product which has relatively highest minimum transaction amount among its peers. It also has moderate to least amount of purchases. This indicates that is a product which is bought least amount of times as well as whenever it was bought in a minimum amount transaction it would cost more than its peers
 # 2.   Product R is most expensive product
 # 3.   Product C has more balance stats. Its' transaction counts are second highest (indicating it is a product that people buy most). As well as the minimum transaction amount of Product C is lowest.
@@ -598,7 +664,7 @@ plt.tight_layout()
 
 # Since, the TransactionAmt is a highly skewed signal, we will use natural logarithm of the field to understand it's nature with other signals 
 
-# In[85]:
+# In[243]:
 
 
 basic_fields_df["TransactionAmtLog"] = np.log(basic_fields_df["TransactionAmt"])
@@ -606,7 +672,7 @@ basic_fields_df["hour_of_day_log"] = np.log(basic_fields_df["hour_of_day"])
 basic_fields_df["minute_of_day_log"] = np.log(basic_fields_df["minute_of_day"])
 
 
-# In[86]:
+# In[244]:
 
 
 basic_fields_df["TransactionAmtLog"].hist(bins=100)
@@ -615,7 +681,7 @@ basic_fields_df["TransactionAmtLog"].hist(bins=100)
 # ### Citation ###
 # https://stats.stackexchange.com/questions/127121/do-logs-modify-the-correlation-between-two-variables
 
-# In[87]:
+# In[245]:
 
 
 # TODO: code to calculate correlation coefficient
@@ -623,44 +689,81 @@ amountVsTime = basic_fields_df[["hour_of_day", "hour_of_day_log", "minute_of_day
 amountVsTime
 
 
-# In[88]:
+# In[246]:
 
 
 basic_fields_df[["hour_of_day", "hour_of_day_log", "minute_of_day", "minute_of_day_log", "TransactionAmt", "TransactionAmtLog"]].corr(method='spearman')
 
 
-# In[89]:
+# In[247]:
 
 
 sns.heatmap(amountVsTime)
 
 
-# #### Since, we do not observe any significant correlation between time features and TransactionAmt, we will observe correlation between aggregation and time feature
+# #### Since, we do not observe any direct significant correlation between time features and TransactionAmt, we will observe correlation between aggregations of TransactionAmt and time feature
 
-# In[99]:
+# In[248]:
 
 
-hour_of_day_agg = basic_fields_df[["TransactionAmt", "hour_of_day"]].groupby(["hour_of_day"]).agg(["min", "max", "sum"])
+hour_of_day_agg = basic_fields_df[["TransactionAmt", "hour_of_day"]].groupby(["hour_of_day"]).agg(["min", "max", "sum", "mean"])
+hour_of_day_agg.columns = ["_".join(x) for x in hour_of_day_agg.columns.ravel()]
 hour_of_day_agg = hour_of_day_agg.reset_index()
 
 
-# In[96]:
+# In[249]:
 
 
 hour_of_day_agg.corr()
 
 
-# In[98]:
+# In[250]:
 
 
 sns.heatmap(hour_of_day_agg.corr())
 
 
 # ### Conclusion
-# 1. Moderate correlation between TransactionAmt and hour of day is observed
-# 2. Correlation value = 0.642
+# #### 1. Moderate correlation between sum of the TransactionAmt in an hour and hour of day is observed 
+# #### (Correlation value = 0.642)
+# #### 2. High correlation between mean TransactionAmt for an hour and hour of day is observed
+# #### (Correlation value = 0.75)
+
+# In[251]:
+
+
+figures, axes = plt.subplots(2,2)
+sns.scatterplot(x="hour_of_day", y="TransactionAmt_min", data=hour_of_day_agg, ax=axes[0,0])
+sns.scatterplot(x="hour_of_day", y="TransactionAmt_max", data=hour_of_day_agg, ax=axes[0,1])
+sns.scatterplot(x="hour_of_day", y="TransactionAmt_sum", data=hour_of_day_agg, ax=axes[1,0])
+sns.scatterplot(x="hour_of_day", y="TransactionAmt_mean", data=hour_of_day_agg, ax=axes[1,1])
+
+axes[0,0].set_title("min")
+axes[0,1].set_title("max")
+axes[1,0].set_title("sum")
+axes[1,1].set_title("mean")
+
+plt.tight_layout()
+
 
 # ## Part 5 - Interesting Plot
+
+# In[288]:
+
+
+device_type_agg = basic_fields_df.groupby(["DeviceType"])["TransactionAmt"].agg(["mean"])
+device_type_agg = device_type_agg.reset_index()
+
+figures, axes = plt.subplots()
+axes.pie(device_type_agg["mean"], explode=(0, 0.1), labels=device_type_agg["DeviceType"], autopct='%1.1f%%', shadow=True, startangle=90)
+axes.axis('equal')  
+axes.set_title("Device Transaction Volume Distribution")
+
+plt.tight_layout()
+
+
+# ### [Part-5] Conclusion (Insight):
+# People when doing transactions containing large amount on average would prefer to do more on desktop devices than on mobile devices
 
 # In[100]:
 
@@ -679,22 +782,35 @@ axes[1].set_title("logarithmic scale")
 plt.tight_layout()
 
 
-# # Conclusion (Insight) 
+# In[280]:
+
+
+instances_where_dist1_dist2_exist = basic_fields_df[(basic_fields_df.dist1.notnull() & basic_fields_df.dist2.notnull())].shape[0]
+instances_where_dist1_dist2_exist
+
+
+# ### [Part-5] Conclusion (Insight) 
 # 1.  As you can notice that, most expenses are done through debit card followed by credit card. The least expenses are done through charge card
-# #### 2.  This indicates that people prefer to stay under their credit limit, else they will have to penalty interest rates. Possibly fear of penalty drive people to use less or avoid using credit card for major expenses. This reveals risk-averse nature of people
-# 3.  Also, the minimal expenses on charge card compared to credit card indicate that people are ready to face interest rates of credit card for late payment but are not ready to face heavy late penalty fees on charge card. A simple search in the domain card types highlights that late penalty feese on charge card are in higher order than on interest on credit card
+# #### 2.  This indicates that people prefer to stay under their credit limit, else they will have to pay penalty interest rates.  Possibly fear of penalty drive people to use less or avoid using credit card for major expenses. This reveals risk-averse nature of people to some extent
+# 3.  Also, the minimal expenses on charge card compared to credit card indicate that people are ready to face interest rates of credit card for late payment but are not ready to face heavy late penalty fees on charge card. A simple search on the internet highlights that late penalty fees on charge card are in more costly than on interest on credit card
+# 4.  There are no instances in data-set where both dist1 and dist2 are measured and available
+
+# ### [Part-5] Conclusion (EDA):
+# 1.  The above EDA helped me to spot missing data and the potential lack of signal to build a good predictor
+# 2.  It taught me how to organize, structure and munge data
+# 3.  It also helped me to test certain hypothesis or invalidate my assumptions
 
 # Write your answer here
 
 # ## Part 6 - Prediction Model
 
-# In[101]:
+# In[173]:
 
 
 # TODO: code for your final model
 
 
-# ## Checking Duplicates for the significant fields across whole data-set
+# ## Checking First for duplicates for the significant fields across whole data-set
 # Testing whether there are any duplicates in the base data (TransactionID, DeviceType, DeviceInfo, TransactionDT, TransactionAmt, ProductCD, addr1, addr2, dist1, dist2, card4, card6, P_emaildomain, R_emaildomain) of transactions and devices.
 # 
 # ---
@@ -720,7 +836,7 @@ test_identify_df = pd.read_csv('../data/test_identity.csv')
 test_transaction_df = pd.read_csv('../data/test_transaction.csv')
 
 
-# ### Missing values in card6/card4 field (credit/debit)
+# ### Missing values in card6(credit/debit)
 # Since card6 and card4 field null counts are not high, filling it with place-holders of credit/debit with equal probability
 
 # In[104]:
@@ -743,6 +859,9 @@ def handle_missing_values_in_card6(input_df, is_test_data):
     return modified_df
 
 
+# ### Missing values in card4(card issuer: visa, mastercard)
+# Since card6 and card4 field null counts are not high, filling it with place-holders of credit/debit with equal probability
+
 # In[105]:
 
 
@@ -759,12 +878,13 @@ def handle_missing_values_in_card4(input_df, test_data):
             print("Test data card4 filling, done with " + str(i) + " , remaining: " + str(len(nan_indices) - i))
         i += 1
     
-    print("==================== Resolved card4 ====================")
-    
+    print("==================== Resolved 
     return modified_df
 
 
-# In[106]:
+# ### Missing values for address fields imputed with defaults
+
+# In[174]:
 
 
 def handle_missing_values_in_addr(input_df):
@@ -780,11 +900,11 @@ def handle_missing_values_in_addr(input_df):
     return modified_df
 
 
-# ### Mapping multiple same information to common field and handling missing values in email-related fields
-# 1. Multiple same emails belonging to same domain like 'gmail.com' and 'gmail' are incorrectly present in training-dataset
+# ### Mapping multiple same domain to common root domain
+# 1. Multiple same emails belonging to same domain like 'gmail.com' and 'gmail' are incorrectly present in training-dataset, due to some measurement error
 # 2. Imputing missing values of purchaser and receipient email
 
-# In[107]:
+# In[175]:
 
 
 def handle_emails(input_df):
@@ -815,7 +935,7 @@ def handle_emails(input_df):
 
 # ### Utility to drop columns from data-frame
 
-# In[108]:
+# In[176]:
 
 
 def drop_columns(input_df, column_names):
@@ -864,6 +984,13 @@ def encode_categorical_fields(input_df):
 
 
 # ### Pre-processing training data-set
+# ### Steps:
+# 1. Left join identity and transaction data TransactionID (Since not all TransactionID are present in identity dataset)
+# 2. Keep the necessary fields for training
+# 3. Handle missing values for: card5, card4, addr1, addr2
+# 4. Map multiple email domains to root email domain
+# 5. Handle missing values for: P_emaildomain, R_emaildomain
+# 6. One-Hot-Encode categorical fields: card4, card6, ProductCD, DeviceType, addr1, addr2, P_emaildomain, R_emaildomain
 
 # ### Currently not addressing missing values in DeviceInfo and distance fields
 
@@ -988,16 +1115,21 @@ def plot_confusion_matrix(y_test, y_predictions, labels=[1,0]):
 pre_processed_df = pre_process_df(train_identity_df, train_transaction_df)
 
 
-# ### Re-sampling
-# 1.  Since, the data is highly imbalance, skewed with large number of non-fraud transactions and few fraud transactions
-# 2.  We perform over-sampling on fraud-instances
-
-# ### Model
-# The best classification model run for above pre-processing steps is Random Forest
-# Earlier attempts include: Logistic Regression and Decision Tree
+# ## Base-line-1 model
+# Run a simple decision tree for classification task followed after above pre-processed steps with no tuning
+# 
+# The score reported on kaggle: 0.4626
+# 
+# The primary reason that this model failed is because it overfitted. The training data had 80-90~ % of non-fraud transactions. The model almost taught itself to predict almost every transaction it sees as non-fraud. Hence, it performed poorly when seen fresh unobserved fraud transactions
 
 # ### Citation:
 # 1. https://www.kaggle.com/rafjaa/resampling-strategies-for-imbalanced-datasets#t5
+
+# ### Base-line-2 model
+# 1.  Since, the data is highly imbalance, skewed with large number of non-fraud transactions and few fraud transactions
+# 2.  We perform over-sampling on fraud-instances
+# 3.  Rank = 5564
+# 4.  Score = 0.6891
 
 # In[123]:
 
@@ -1021,21 +1153,64 @@ prfs = precision_recall_fscore_support(y_test, y_predictions, average='binary')
 print("Precision-Recall-Fscore-Support -> " + str(prfs))
 
 
+# In[ ]:
+
+
+###
+
+
+# ### Final Model
+# Alternative approach to handle imbalance data-set is to undersample majority class (non-fraud transactions)
+# 
+# We also experiment with bootsrapping/ensemble method like XGBoost to perform classification
+
+# In[293]:
+
+
+# Undersampling with RandomSampler
+X_train, X_test, y_train, y_test = split_dataset(pre_processed_df)
+
+print("splitting over")
+
+rus = RandomUnderSampler(return_indices=True)
+X_undersample, y_undersample, id_undersample = rus.fit_sample(X_train, y_train)
+
+print("Resample over")
+
+
+# In[294]:
+
+
+xgb_classifier = xgb.XGBClassifier(objective="binary:logistic", random_state=42)
+xgb_classifier.fit(X_undersample, y_undersample)
+
+
+# In[295]:
+
+
+y_predictions = xgb_classifier.predict(X_test.values)
+accuracy_score = xgb_classifier.score(X_test.values, y_test.values)
+print("XGB accuracy: " + str(accuracy_score))
+confusion_mat = plot_confusion_matrix(y_test, y_predictions)
+prfs = precision_recall_fscore_support(y_test, y_predictions, average='binary')
+print("Precision-Recall-Fscore-Support -> " + str(prfs))
+
+
 # Write your answer here
 
 # ## Part 7 - Final Result
 
 # Report the rank, score, number of entries, for your highest rank. Include a snapshot of your best score on the leaderboard as confirmation. Be sure to provide a link to your Kaggle profile. Make sure to include a screenshot of your ranking. Make sure your profile includes your face and affiliation with SBU.
 
-# Kaggle Link: https://www.kaggle.com/c/ieee-fraud-detection/submissions
+# Kaggle Link: https://www.kaggle.com/parasquantshopper
 
-# Highest Rank: 5564
+# Highest Rank: 5249
 
-# Score: 0.6891
+# Score: 0.8294
 
-# Number of entries: 506691
+# Number of entries: 4
 
-# <img src="RankingImage.png">
+# <img src="latestRankingImage.png">
 
 # In[ ]:
 
